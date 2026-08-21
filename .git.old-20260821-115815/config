@@ -1,0 +1,15 @@
+[core]
+	repositoryformatversion = 1
+	filemode = true
+	bare = false
+	logallrefupdates = true
+	ignorecase = true
+	precomposeunicode = true
+[remote "origin"]
+	url = https://github.com/Laplace-bit/dsh-smooth-stream.git
+	fetch = +refs/heads/main:refs/remotes/origin/main
+	promisor = true
+	partialclonefilter = blob:none
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main

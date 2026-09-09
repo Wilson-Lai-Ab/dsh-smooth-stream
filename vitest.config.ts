@@ -79,7 +79,14 @@ function harnessPathsPlugin(): Plugin | null {
 
 export default defineConfig({
   root,
-  plugins: [harnessPathsPlugin()].filter((plugin): plugin is Plugin => plugin !== null),
+  plugins: [harnessPathsPlugin()].filter((plugin): plugin is Plugin => plugin !== null).concat({
+    name: 'stub-plain-css',
+    load(id) {
+      if (id.split('?')[0]?.endsWith('.css') && !id.includes('.module.css')) {
+        return 'export default ""'
+      }
+    },
+  }),
   resolve: {
     alias: {
       react: resolve(root, 'node_modules/react'),
@@ -87,10 +94,20 @@ export default defineConfig({
       'react/jsx-dev-runtime': resolve(root, 'node_modules/react/jsx-dev-runtime.js'),
       'react-dom': resolve(root, 'node_modules/react-dom'),
       'react-dom/client': resolve(root, 'node_modules/react-dom/client.js'),
+      'katex/dist/katex.min.css': resolve(root, 'tests/empty.css.js'),
     },
   },
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.spec.tsx'],
+    server: {
+      deps: {
+        inline: [
+          '@deepseek-ai/dsh-client-ui-primitives',
+          '@deepseek-ai/dsh-client-ui-attachment',
+          'katex',
+        ],
+      },
+    },
   },
 })

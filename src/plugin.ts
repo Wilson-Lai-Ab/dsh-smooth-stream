@@ -1,7 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
-import { settingsNamespace } from '@deepseek-ai/dsh-settings'
+import type { SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import Schema from '@deepseek-ai/schemastery'
 import { DEFAULT_STREAM_CONFIG, type StreamConfig } from './config.ts'
 import { injectStreamConfig } from './boot-config.ts'
@@ -70,7 +70,7 @@ export function apply(ctx: Context, config: Config): void {
   // the plugin's own loopback-only connection channel instead.
   ctx.inject(['settings'], (settingsCtx) => {
     const scope = settingsCtx.settings.register(
-      settingsNamespace(STREAM_SETTINGS_NS),
+      STREAM_SETTINGS_NS as SettingsNamespace,
       StreamSettingsSchema,
       { applies: 'live' },
     )

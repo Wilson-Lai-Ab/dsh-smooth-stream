@@ -4,8 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { Context } from '@deepseek-ai/cordis'
-import { SlotRegistry } from '@deepseek-ai/dsh-client-runtime/client'
-import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
+import { SlotRegistry } from './slot-registry.ts'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { apply, inject } from '../src/client/index.ts'
 import { SmoothStreamCard, type SmoothStreamCardProps } from '../src/client/SmoothStreamCard.tsx'
@@ -37,8 +36,10 @@ async function bench(options: BenchOptions = {}): Promise<{
 }> {
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
-  const locale = new LocaleRuntime(ctx)
-  ctx.provide('locale', locale)
+  ctx.provide('locale', {
+    register: () => () => {},
+    bind: () => (key: string) => key,
+  })
 
   let view = options.view ?? developmentView
   const coreDescribe = vi.fn(() => Promise.resolve({
@@ -67,7 +68,7 @@ async function bench(options: BenchOptions = {}): Promise<{
     rpc: { call },
   } as never)
 
-  return { ctx, slots: ctx.get('slots') as SlotRegistry, coreDescribe, call }
+  return { ctx, slots: ctx.get('slots') as unknown as SlotRegistry, coreDescribe, call }
 }
 
 function declareCardSlot(slots: SlotRegistry): () => void {
@@ -197,11 +198,13 @@ describe('smooth-stream settings card', () => {
   it('registers the card when the optional settings services arrive after activation', async () => {
     const ctx = new Context()
     await ctx.plugin(SlotRegistry).await()
-    const slots = ctx.get('slots') as SlotRegistry
+    const slots = ctx.get('slots') as unknown as SlotRegistry
     await ctx.plugin({ inject: [...inject], apply }).await()
 
-    const locale = new LocaleRuntime(ctx)
-    ctx.provide('locale', locale)
+    ctx.provide('locale', {
+      register: () => () => {},
+      bind: () => (key: string) => key,
+    })
     ctx.provide('connection', {
       rpc: { call: vi.fn(() => Promise.resolve({ ok: true, value: developmentView })) },
     } as never)

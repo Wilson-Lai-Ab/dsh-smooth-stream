@@ -1,5 +1,5 @@
 import { createElement, useSyncExternalStore, type ComponentType } from 'react'
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
+import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: the connection Context merge and the plugins section's SlotMap
 // entry ('settings.plugin.item').
@@ -22,6 +22,23 @@ import { DEFAULT_STREAM_SETTINGS } from '../settings.ts'
  * streams with defaults.
  */
 export const inject = ['slots']
+
+/** Slot registry face used here; 0.1.2 owns it on ui-renderer, not client-runtime. */
+interface SlotEntryFace {
+  options: { key?: string }
+  component: unknown
+}
+
+interface SlotRegistryFace {
+  entries(name: string): Iterable<SlotEntryFace>
+  inject(name: string, factory: () => unknown): void
+  register(options: Record<string, unknown>, component: unknown): () => void
+}
+
+type SmoothStreamClientContext = Context & {
+  slots: SlotRegistryFace
+  locale: { register: (ns: string, dicts: { zh: object; en: object }) => () => void }
+}
 
 type AssistantProps = ChatNodeViewProps<'assistant-step'>
 
@@ -69,7 +86,7 @@ function readBootConfig(): StreamConfig {
  * @param ctx - Browser context carrying the slot registry.
  * @returns Restorer that puts the original components back.
  */
-function wrapGrowingChatRows(ctx: ClientContext): () => void {
+function wrapGrowingChatRows(ctx: SmoothStreamClientContext): () => void {
   const restores: Array<() => void> = []
   const wrapped = new WeakSet<object>()
 
@@ -152,7 +169,8 @@ class PreferenceCell {
  * settings surface is composed.
  * @param ctx - Browser context carrying the shared slot registry.
  */
-export function apply(ctx: ClientContext): void {
+export function apply(ctx: Context): void {
+  const client = ctx as SmoothStreamClientContext
   const config = readBootConfig()
   const preference = new PreferenceCell()
 
@@ -160,16 +178,17 @@ export function apply(ctx: ClientContext): void {
   // namespace allowlist cannot make it disappear. The stream still applies
   // with defaults when the optional Settings UI or Connection is absent.
   ctx.inject(['slots', 'locale', 'connection'], (settingsCtx) => {
+    const settingsClient = settingsCtx as SmoothStreamClientContext
     const card = new SmoothStreamCardController(
       // The shared Context augmentation also carries the Host-side Connection
       // shape. This browser entry runs after the client provider installs its
       // handle, so narrow through unknown to its client contract here.
-      createSmoothStreamSettingsApi(settingsCtx.get('connection') as unknown as ConnectionHandle),
+      createSmoothStreamSettingsApi(settingsClient.get('connection') as unknown as ConnectionHandle),
     )
     const detachPreference = preference.attach(card)
     card.start()
-    settingsCtx.effect(() => settingsCtx.locale.register(SETTINGS_NS, { zh, en }), 'dsh-smooth-stream: settings dictionaries')
-    settingsCtx.slots.inject('settings.plugin.item', () => settingsCtx.slots.register({
+    settingsClient.effect(() => settingsClient.locale.register(SETTINGS_NS, { zh, en }), 'dsh-smooth-stream: settings dictionaries')
+    settingsClient.slots.inject('settings.plugin.item', () => settingsClient.slots.register({
       name: 'settings.plugin.item',
       id: 'smooth-stream',
       order: 30,
@@ -198,9 +217,9 @@ export function apply(ctx: ClientContext): void {
       thinkAutoExpand,
     })
   }
-  ctx.slots.inject('conversation.chat.node', () => {
-    const unwrap = wrapGrowingChatRows(ctx)
-    const unshadow = ctx.slots.register({
+  client.slots.inject('conversation.chat.node', () => {
+    const unwrap = wrapGrowingChatRows(client)
+    const unshadow = client.slots.register({
       name: 'conversation.chat.node',
       key: 'assistant-step',
       priority: -100,
